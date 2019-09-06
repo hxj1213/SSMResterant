@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>table.html</title>
+		<meta charset="UTF-8">
+		<meta name="keywords" content="keyword1,keyword2,keyword3">
+		<meta name="description" content="this is my page">
+		<meta name="content-type" content="text/html; charset=UTF-8">
+		<link rel="stylesheet" type="text/css" href="/layui/css/layui.css">
+		<script src="/js/dateformat.js"></script>
+		<style>
+			.table_container{
+				width: 90%;
+				margin: 20px auto 0;
+			}
+		</style>
+	</head>
+	<body>
+	<div class="table_container">
+		<div>
+			<div class="layui-inline">
+				<input class="layui-input" name="tableName" id="tableNameCondition" autocomplete="off" placeholder="请输入餐桌名称">
+			</div>
+			<button class="layui-btn" data-type="reload" id="searchBt">搜索</button>
+			<button class="layui-btn" id="addTableBt">添加</button>
+		</div>
+		<table id="dinnerTable" class="layui-table" lay-filter="dinnerTable"></table>
+
+		<script type="text/html" id="rowBarDemo">
+			<a class="layui-btn layui-btn-primary layui-btn-xs" lay-event="order">
+				{{#  if(d.tableStatue == '0'){ }}
+				预定
+				{{#  } else { }}
+				退订
+				{{#  } }}
+			</a>
+			<a class="layui-btn layui-btn-xs" lay-event="edit">编辑</a>
+			<a class="layui-btn layui-btn-danger layui-btn-xs" lay-event="del">删除</a>
+		</script>
+
+		<script type="text/html" id="tableStatueTpl">
+			{{#  if(d.tableStatue == '0'){ }}
+			空闲
+			{{#  } else { }}
+			预定
+			{{#  } }}
+		</script>
+
+		<script type="text/html" id="orderDateTpl">
+			{{#  if(d.orderDate || ''){ }}
+			{{= new Date(d.orderDate).format('yyyy-MM-dd   HH:mm:ss')}}
+			{{#  } else { }}
+
+			{{#  } }}
+		</script>
+
+
+	</div>
+		<script type="text/javascript" src="/layui/layui.js"></script>
+		<script>
+			layui.use(['table','layer','laydate','jquery','laypage'], function(){
+			  var table = layui.table;
+			  var layer = layui.layer;
+			  var laydate = layui.laydate;
+			  var $ = layui.jquery;
+			  var laypage = layui.laypage;
+
+
+			  $("#searchBt").click(function () {
+				 var searchCondition =  $("#tableNameCondition").val();
+				 console.log(searchCondition);
+				 options.where = {"condition['tableName']":searchCondition};
+				 table.render(options);
+			  });
+
+			  $("#addTableBt").click(function () {
+				  layer.open({
+					  type: 1
+					  ,content: '<form id="addForm">\n' +
+							  '\t\t\t\t<div style="width: 300px;padding: 10px">\n' +
+							  '\t\t\t\t\t<input class="layui-input" type="text" name="tableName" placeholder="请输入餐桌名称">\n' +
+							  '\t\t\t\t</div>\n' +
+							  '\t\t\t</form>'
+					  ,btn: ['确定添加']
+					  ,btnAlign: 'c' //按钮居中
+					  ,shade: 0.3 //不显示遮罩
+					  ,yes:function () {
+						  //发送添加请求
+						  $.ajax({
+							  type:'POST',
+							  url:'/table/add.action',
+							  data:$("#addForm").serialize(),
+							  success:function (resData) {
+								  console.log("添加状态："+resData);
+								  //刷新表格
+								  if(resData=="success"){
+									  table.render(options);
+								  }else{
+									  layer.msg('添加失败，请重试或联系管理员');
+								  }
+							  }
+						  });
+						  layer.closeAll();
+					  }
+				  });
+			  });
+
+			  var options = {
+				  elem:'#dinnerTable'
+				  ,url:'/table/findByPage.action'
+				  ,cols:  [[ //标题栏
+					  {type:'checkbox'},
+					  {type:'numbers',title:'编号'},
+					  {field: 'tableName', title: '餐桌名称'},
+					  {field: 'tableStatue', title: '预定状态',templet: '#tableStatueTpl'},
+					  {field: 'orderDate', title: '预定时间',templet: '#orderDateTpl'},
+					  {fixed: 'right', minWidth: 165, align:'center', toolbar: '#rowBarDemo'}
+				  ]]
+				  ,limit:3
+				  ,page:true
+				  ,request: {
+					  pageName: 'pageNow' //页码的参数名称，默认：page
+					  ,limitName: 'pageCount' //每页数据量的参数名，默认：limit
+				  }
+				  ,parseData: function(res){ //将原始数据解析成 table 组件所规定的数据
+					  console.log(res);
+					  return {
+						  "code": 0, //解析接口状态
+						  "msg": "", //解析提示文本
+						  "count": res.totalRows, //解析数据长度
+						  "data": res.data,//解析数据列表
+					  };
+				  }
+			  };
+
+				table.render(options);
+
+				//监听行工具事件
+				table.on('tool(dinnerTable)', function(obj){ //注：tool 是工具条事件名，test 是 table 原始容器的属性 lay-filter="对应的值"
+					console.log(obj);
+				    var data = obj.data //获得当前行数据
+							,layEvent = obj.event; //获得 lay-event 对应的值
+					if(layEvent === 'order'){
+
+						//获取当前状态
+						var tableStatue = data.tableStatue;
+
+						if(tableStatue==0){
+							layer.open({
+								type: 1
+								,content: '<div class="layui-show-inline" style="width: 357px;padding-top:26px;padding-bottom: 26px">\n' +
+										'      <label class="layui-form-label" style="width: 120px">日期时间选择器</label>\n' +
+										'      <div class="layui-input-inline">\n' +
+										'        <input type="text" class="layui-input" id="datetime" placeholder="yyyy-MM-dd HH:mm:ss">\n' +
+										'      </div>\n' +
+										'    </div>'
+								,btn: ['确定预定']
+								,btnAlign: 'c' //按钮居中
+								,shade: 0.3 //不显示遮罩
+								,yes:function () {
+									//发送预定请求
+                                    var newDate = parseDate($("#datetime").val());
+                                    console.log(newDate);
+									var param = {"id":data.id,"tableStatue":1,"orderDate":newDate};
+									console.log(param);
+									$.ajax({
+                                        type:'POST',
+                                        url:'/table/update.action',
+                                        data:JSON.stringify(param),
+                                        contentType:'application/json;charset=UTF-8',
+                                        success:function (resData) {
+                                            console.log("预定状态："+resData);
+                                            //刷新表格
+                                            if(resData=="success"){
+                                                var tableRender = table.render(options);
+                                                tableRender.reload(tableRender);
+                                            }else{
+                                                layer.msg('预定失败，请重试或联系管理员');
+                                            }
+                                        }
+                                    });
+                                    layer.closeAll();
+								}
+							});
+
+							laydate.render({
+								elem: '#datetime'
+								,type: 'datetime'
+								,min: 1
+							});
+						}else{
+							layer.confirm('您确定要退订吗', function(index){
+								//发送修改状态请求
+								$.ajax({
+                                    type:'POST',
+                                    url:'/table/update.action',
+                                    data:JSON.stringify({"id":data.id,"tableStatue":0}),
+                                    contentType:'application/json;charset=UTF-8',
+                                    success:function (resData) {
+                                        console.log("预定状态："+resData);
+                                        //刷新表格
+										if(resData=="success"){
+                                            var tableRender = table.render(options);
+                                            tableRender.reload(tableRender);
+                                            layer.closeAll();
+										}else{
+											layer.msg('退订失败，请重试或联系管理员');
+										}
+                                    }
+                                });
+							});
+						}
+					} else if(layEvent === 'del'){
+
+                        layer.confirm('您确定要删除吗', function(index){
+                           //发送删除请求
+                           $.post('/table/delete.action',{"id":data.id},function (resData) {
+                               console.log("删除状态："+resData);
+                               //刷新表格
+							   if(resData=="success"){
+								   var tableRender = table.render(options);
+								   tableRender.reload(tableRender);
+								   layer.closeAll();
+							   }else{
+								   layer.msg('删除失败，请重试或联系管理员');
+							   }
+                           });
+                        });
+
+					} else if(layEvent === 'edit'){
+
+                        layer.open({
+                            type: 1
+                            ,content: '<div style="width: 300px"><input class="layui-input" style="width:270px;margin: 10px auto" type="text" id="tableName" value="'+data.tableName+'"></div>'
+                            ,btn: ['确定修改']
+                            ,btnAlign: 'c' //按钮居中
+                            ,shade: 0.3 //不显示遮罩
+                            ,yes:function () {
+                                //发送预定请求
+                                var param = {"id":data.id,"tableName":$("#tableName").val()};
+                                console.log(param);
+                                $.ajax({
+                                    type:'POST',
+                                    url:'/table/update.action',
+                                    data:JSON.stringify(param),
+                                    contentType:'application/json;charset=UTF-8',
+                                    success:function (resData) {
+                                        console.log("修改状态："+resData);
+                                        //刷新表格
+                                        if(resData=="success"){
+                                            var tableRender = table.render(options);
+                                            tableRender.reload(tableRender);
+                                        }else{
+                                            layer.msg('修改餐桌失败，请重试或联系管理员');
+                                        }
+                                    }
+                                });
+                                layer.closeAll();
+                            }
+                        });
+					}
+				});
+
+			});
+
+
+			
+
+		</script>
+	</body>
+</html>

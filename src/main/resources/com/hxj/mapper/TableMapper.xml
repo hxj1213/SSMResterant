@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.hxj.mapper.TableMapper">
+
+    <!-- insert into tableName(c1,c2,c3) values('1','2','3')
+    insert into tableName(c1,c2) values('1','2')
+   -->
+    <insert id="add">
+        insert into dinnertable(tableName) values(#{tableName})
+    </insert>
+
+    <insert id="addList">
+        insert into dinnertable(tableName) values
+        <foreach collection="list" item="table" separator=",">
+            (#{table.tableName})
+        </foreach>
+    </insert>
+
+    <!--  -->
+    <update id="update">
+        update dinnertable set
+        <trim suffixOverrides=",">
+            <if test="tableName!=null">
+                tableName=#{tableName},
+            </if>
+            <if test="tableName==null">
+                tableStatue=#{tableStatue},
+                orderDate=#{orderDate}
+            </if>
+        </trim>
+        where id=#{id}
+    </update>
+
+    <delete id="delete">
+        delete from dinnertable where id=#{id}
+    </delete>
+
+    <!-- {8,9,10} -->
+    <delete id="deleteList">
+        delete from dinnertable where id in
+        <foreach collection="array" item="id" open="(" close=")" separator=",">
+            #{id}
+        </foreach>
+    </delete>
+
+    <!-- 表中的字段 -->
+    <sql id="tableCou">
+        id,tableName,tableStatue,orderDate
+    </sql>
+
+    <select id="findAll" resultType="Table">
+        select <include refid="tableCou"/> from dinnertable
+    </select>
+
+    <select id="findById" resultType="Table">
+        select <include refid="tableCou"/> from dinnertable where id=#{id}
+    </select>
+
+
+    <!-- 创建一个sql片段 -->
+    <sql id="condition">
+        <where>
+            <if test="condition.tableName!=null">
+                and tableName like CONCAT('%',#{condition.tableName},'%')
+            </if>
+            <if test="condition.tableStatue!=null">
+                and tableStatue=#{condition.tableStatue}
+            </if>
+            <if test="condition.tableStatue!=0 and condition.startTime!=null">
+                and orderDate&gt;=#{condition.startTime}
+            </if>
+            <if test="condition.tableStatue!=0 and condition.endTime!=null">
+                and orderDate&lt;=#{condition.endTime}
+            </if>
+        </where>
+    </sql>
+
+
+    <select id="findCount" resultType="int" parameterType="com.hxj.page.PageBean">
+        select count(*) from dinnertable
+        <include refid="condition"/>
+    </select>
+
+    <select id="findByPage" resultType="Table" parameterType="com.hxj.page.PageBean">
+        select id,tableName,tableStatue,orderDate from dinnertable
+        <include refid="condition"/>
+        order by id desc
+        limit #{startIndex},#{pageCount}
+    </select>
+
+
+</mapper>
